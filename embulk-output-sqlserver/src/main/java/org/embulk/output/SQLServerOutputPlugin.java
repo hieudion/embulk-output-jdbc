@@ -15,6 +15,7 @@ import org.embulk.output.jdbc.StandardBatchInsert;
 import org.embulk.output.jdbc.TableIdentifier;
 import org.embulk.output.jdbc.setter.ColumnSetterFactory;
 import org.embulk.output.sqlserver.InsertMethod;
+import org.embulk.output.sqlserver.MSSqlServerInfo;
 import org.embulk.output.sqlserver.NativeBatchInsert;
 import org.embulk.output.sqlserver.SQLServerOutputConnector;
 import org.embulk.output.sqlserver.setter.SQLServerColumnSetterFactory;
@@ -242,9 +243,24 @@ public class SQLServerOutputPlugin
         } else {
             StringBuilder urlBuilder = new StringBuilder();
             if (sqlServerTask.getInstance().isPresent()) {
-                urlBuilder.append(String.format("jdbc:sqlserver://%s\\%s",
-                        sqlServerTask.getHost().get(), sqlServerTask.getInstance().get()));
-            } else {
+                if (sqlServerTask.getPort() != DEFAULT_PORT) {
+                    logger.warn("'port: {}' option is ignored because instance option is set", sqlServerTask.getPort());
+                }
+
+                // default port
+                int port = 1433;
+                try {
+                    // resolve the port from instance name
+                    MSSqlServerInfo msSqlServerInfo = new MSSqlServerInfo(sqlServerTask.getHost().get());
+                    port = msSqlServerInfo.getPortForInstance(sqlServerTask.getInstance().get());
+
+                } catch (SQLException e) {
+                    logger.warn("Unable to connect to SQL Browser to resolve port from instance name " + sqlServerTask.getInstance().get() + ", use default port 1433 to try to connect");
+                }
+
+                urlBuilder.append(String.format(ENGLISH, "jdbc:sqlserver://%s:%d", sqlServerTask.getHost().get(), port));
+            }
+            else {
                 urlBuilder.append(String.format("jdbc:sqlserver://%s:%d",
                         sqlServerTask.getHost().get(), sqlServerTask.getPort()));
             }
